@@ -12,7 +12,7 @@
 GXRModeObj	*screenMode;
 static void	*frameBuffer;
 static vu8	readyForCopy;
-#define	FIFO_SIZE (256*1024)
+#define	FIFO_SIZE (64*1024)
 
 s16	vertices[] ATTRIBUTE_ALIGN(32) = {
 	0, 15, 0,
@@ -86,7 +86,7 @@ int	main(void) {
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
 	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
 
-	while(SYS_MainLoop())
+	while(true)
 	{
 		guLookAt(view, &camera,	&up, &look);
 		GX_SetViewport(0,0,screenMode->fbWidth,screenMode->efbHeight,0,1);
@@ -110,6 +110,7 @@ void update_screen(	Mtx	viewMatrix )
 
 	GX_LoadPosMtxImm(modelView,	GX_PNMTX0);
 
+	for (int i = 0; i < 10000; i++) {
 	GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
 
 	GX_Position1x8(0);
@@ -120,6 +121,7 @@ void update_screen(	Mtx	viewMatrix )
 	GX_Color1x8(2);
 
 	GX_End();
+	}
 
 	GX_DrawDone();
 	readyForCopy = GX_TRUE;
