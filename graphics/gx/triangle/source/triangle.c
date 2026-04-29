@@ -8,6 +8,9 @@
 #include <math.h>
 #include <gccore.h>
 #include <wiiuse/wpad.h>
+#include <tuxedo/thread.h>
+#include <tuxedo/ppc/clock.h>
+#include <tuxedo/tick.h>
 
 GXRModeObj	*screenMode;
 static void	*frameBuffer;
@@ -27,6 +30,17 @@ u8 colors[]	ATTRIBUTE_ALIGN(32)	= {
 void update_screen(Mtx viewMatrix);
 static void	copy_buffers(u32 unused);
 
+#define USE_WPAD 1
+
+static KTickTask s_timer;
+static int s_counter;
+
+static void timer_cb(KTickTask *)
+{
+	s_counter++;
+	if (s_counter % 10 == 0) KThreadYield();
+}
+
 int	main(void) {
 	Mtx	view;
 	Mtx44	projection;
@@ -34,7 +48,9 @@ int	main(void) {
 	void *fifoBuffer = NULL;
 
 	VIDEO_Init();
+#if USE_WPAD
 	WPAD_Init();
+#endif
 
 	screenMode = VIDEO_GetPreferredMode(NULL);
 
@@ -86,6 +102,8 @@ int	main(void) {
 	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
 	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
 
+	u64 interval = PPCUsToTicks(1000);
+	KTickTaskStart(&s_timer, timer_cb, interval, interval);
 	while(true)
 	{
 		guLookAt(view, &camera,	&up, &look);
@@ -94,8 +112,10 @@ int	main(void) {
 		GX_InvalidateTexAll();
 		update_screen(view);
 
+#if USE_WPAD
 		WPAD_ScanPads();
 		if (WPAD_ButtonsDown(0) & WPAD_BUTTON_HOME) exit(0);
+#endif
 	}
 	return 0;
 }
