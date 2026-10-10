@@ -6,6 +6,12 @@
 static void *xfb = NULL;
 static bool isSearching = false;
 static GXRModeObj *rmode = NULL;
+static u8 disconnection_reason[WPAD_MAX_DEVICES] = {0,};
+
+static void disconnected_cb(s32 chan, u8 reason)
+{
+	disconnection_reason[chan] = reason;
+}
 
 //---------------------------------------------------------------------------------
 int main(int argc, char **argv) {
@@ -50,6 +56,9 @@ int main(int argc, char **argv) {
 	//tell wpad to output the IR data
 	WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
 
+	// Listen for disconnections, in order to catch the reason
+	WPAD_SetDisconnectCallback(disconnected_cb);
+
 	//set console starting position to the second row, to make space for tv's offsets
 	printf("\x1b[2;0H");
 
@@ -74,8 +83,19 @@ int main(int argc, char **argv) {
 			WPADData* data = WPAD_Data(i);
 			if(data->data_present)
 				printf("wiimote %d: x -> %f y-> %f angle -> %f\n", i, data->ir.x, data->ir.y, data->ir.angle);
-			else
-				printf("wiimote %d: Disconnected\n", i);
+			else {
+				const char *reason_text = "";
+				switch (disconnection_reason[i]) {
+				case WPAD_DISCON_AUTH_FAILURE: reason_text = " (Auth failure)"; break;
+				case WPAD_DISCON_REPEATED_ATTEMPTS: reason_text = " (Repeated attempts)"; break;
+				case WPAD_DISCON_IDLE_TIMEOUT: reason_text = " (Idle timeout)"; break;
+				case WPAD_DISCON_POWER_OFF: reason_text = " (Poweroff)"; break;
+				case WPAD_DISCON_BATTERY_DIED: reason_text = " (Battery died)"; break;
+				case WPAD_DISCON_SYNC_PRESSED: reason_text = " (Sync pressed)"; break;
+				case WPAD_DISCON_TIMEOUT: reason_text = " (Connection timeout)"; break;
+				}
+				printf("wiimote %d: Disconnected %s\n", i, reason_text);
+			}
 		}
 
 		// WPAD_ButtonsDown tells us which buttons were pressed in this loop
