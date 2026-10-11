@@ -113,6 +113,7 @@ int main(int argc, char **argv) {
 
 			u32 btn_down = WPAD_ButtonsDown(i);
 			u32 btn_combo = btn_down ? (btn_down | WPAD_ButtonsHeld(i)) : 0;
+			u32 btn_released = WPAD_ButtonsUp(i);
 			if (WPAD_ButtonsDown(i) & WPAD_BUTTON_MINUS)
 			{
 				WPAD_Disconnect(i);
@@ -125,6 +126,16 @@ int main(int argc, char **argv) {
 					mp_enabled = !mp_enabled;
 					WPAD_SetMotionPlus(i, mp_enabled);
 				}
+
+				if (btn_combo & WPAD_BUTTON_DOWN)
+				{
+					WPAD_Rumble(i, 1);
+				}
+			}
+
+			if (btn_released & WPAD_BUTTON_DOWN)
+			{
+				WPAD_Rumble(i, 0);
 			}
 		}
 
