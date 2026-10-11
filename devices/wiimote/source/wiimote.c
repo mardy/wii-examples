@@ -82,7 +82,11 @@ int main(int argc, char **argv) {
 			printf("\33[2K\r");
 			WPADData* data = WPAD_Data(i);
 			if(data->data_present)
-				printf("wiimote %d: x -> %f y-> %f angle -> %f\n", i, data->ir.x, data->ir.y, data->ir.angle);
+			{
+				float battery_level = WPAD_BatteryLevel(i) * 100.0 / 200;
+				printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f\n",
+				       i, battery_level, data->ir.x, data->ir.y, data->ir.angle);
+			}
 			else {
 				const char *reason_text = "";
 				switch (disconnection_reason[i]) {
