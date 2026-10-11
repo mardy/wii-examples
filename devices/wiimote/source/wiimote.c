@@ -68,6 +68,7 @@ int main(int argc, char **argv) {
 	printf("to toggle searching for guest wiimotes, press +\n");
 	printf("to exit, press the home\n");
 	
+	bool mp_enabled = false;
 	while(SYS_MainLoop()) 
 	{
 		//reset console location to 8th row
@@ -84,8 +85,17 @@ int main(int argc, char **argv) {
 			if(data->data_present)
 			{
 				float battery_level = WPAD_BatteryLevel(i) * 100.0 / 200;
-				printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f\n",
-				       i, battery_level, data->ir.x, data->ir.y, data->ir.angle);
+				if (data->data_present & WPAD_DATA_EXPANSION && data->exp.type == EXP_MOTION_PLUS)
+				{
+					printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f, gyro (%d, %d, %d)\n",
+					       i, battery_level, data->ir.x, data->ir.y, data->ir.angle,
+					       data->exp.mp.rx, data->exp.mp.ry, data->exp.mp.rz);
+				}
+				else
+				{
+					printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f\n",
+					       i, battery_level, data->ir.x, data->ir.y, data->ir.angle);
+				}
 			}
 			else {
 				const char *reason_text = "";
@@ -99,6 +109,22 @@ int main(int argc, char **argv) {
 				case WPAD_DISCON_TIMEOUT: reason_text = " (Connection timeout)"; break;
 				}
 				printf("wiimote %d: Disconnected %s\n", i, reason_text);
+			}
+
+			u32 btn_down = WPAD_ButtonsDown(i);
+			u32 btn_combo = btn_down ? (btn_down | WPAD_ButtonsHeld(i)) : 0;
+			if (WPAD_ButtonsDown(i) & WPAD_BUTTON_MINUS)
+			{
+				WPAD_Disconnect(i);
+			}
+
+			if (btn_combo & WPAD_BUTTON_B)
+			{
+				if (btn_combo & WPAD_BUTTON_UP)
+				{
+					mp_enabled = !mp_enabled;
+					WPAD_SetMotionPlus(i, mp_enabled);
+				}
 			}
 		}
 
