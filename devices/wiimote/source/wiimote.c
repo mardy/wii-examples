@@ -8,6 +8,25 @@ static bool isSearching = false;
 static GXRModeObj *rmode = NULL;
 static u8 disconnection_reason[WPAD_MAX_DEVICES] = {0,};
 
+static int format_buttons(char *buffer, u32 buttons)
+{
+	char *ptr = buffer;
+	if (buttons & WPAD_BUTTON_UP) ptr += sprintf(ptr, "Up ");
+	if (buttons & WPAD_BUTTON_DOWN) ptr += sprintf(ptr, "Dn ");
+	if (buttons & WPAD_BUTTON_LEFT) ptr += sprintf(ptr, "Lf ");
+	if (buttons & WPAD_BUTTON_RIGHT) ptr += sprintf(ptr, "Rt ");
+	if (buttons & WPAD_BUTTON_A) ptr += sprintf(ptr, "A ");
+	if (buttons & WPAD_BUTTON_B) ptr += sprintf(ptr, "B ");
+	if (buttons & WPAD_BUTTON_PLUS) ptr += sprintf(ptr, "+ ");
+	if (buttons & WPAD_BUTTON_MINUS) ptr += sprintf(ptr, "- ");
+	if (buttons & WPAD_BUTTON_HOME) ptr += sprintf(ptr, "Home ");
+	if (buttons & WPAD_BUTTON_1) ptr += sprintf(ptr, "1 ");
+	if (buttons & WPAD_BUTTON_2) ptr += sprintf(ptr, "2 ");
+	if (buttons & WPAD_NUNCHUK_BUTTON_C) ptr += sprintf(ptr, "C ");
+	if (buttons & WPAD_NUNCHUK_BUTTON_Z) ptr += sprintf(ptr, "Z ");
+	return ptr - buffer;
+}
+
 static void disconnected_cb(s32 chan, u8 reason)
 {
 	disconnection_reason[chan] = reason;
@@ -69,10 +88,12 @@ int main(int argc, char **argv) {
 	printf("to exit, press the home\n");
 	
 	bool mp_enabled = false;
+	int num_lines_prev = 0;
 	while(SYS_MainLoop()) 
 	{
 		//reset console location to 8th row
 		printf("\x1b[8;0H");
+		int num_lines = 0;
 
 		// Call WPAD_ScanPads each loop, this reads the latest controller states
 		WPAD_ScanPads();
@@ -96,6 +117,15 @@ int main(int argc, char **argv) {
 					printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f\n",
 					       i, battery_level, data->ir.x, data->ir.y, data->ir.angle);
 				}
+				char second_line[128];
+				char *dst = second_line;
+				if (data->btns_h) {
+					dst += format_buttons(dst, data->btns_h);
+				}
+				if (dst != second_line) {
+					printf("        %-60s\n", second_line);
+					num_lines++;
+				}
 			}
 			else {
 				const char *reason_text = "";
@@ -108,8 +138,9 @@ int main(int argc, char **argv) {
 				case WPAD_DISCON_SYNC_PRESSED: reason_text = " (Sync pressed)"; break;
 				case WPAD_DISCON_TIMEOUT: reason_text = " (Connection timeout)"; break;
 				}
-				printf("wiimote %d: Disconnected %s\n", i, reason_text);
+				printf("wiimote %d: Disconnected %-40s\n", i, reason_text);
 			}
+			num_lines++;
 
 			u32 btn_down = WPAD_ButtonsDown(i);
 			u32 btn_combo = btn_down ? (btn_down | WPAD_ButtonsHeld(i)) : 0;
@@ -139,6 +170,10 @@ int main(int argc, char **argv) {
 			}
 		}
 
+		for (int i = num_lines; i < num_lines_prev; i++) {
+			printf("%80s\n", "");
+		}
+		num_lines_prev = num_lines;
 		// WPAD_ButtonsDown tells us which buttons were pressed in this loop
 		// this is a "one shot" state which will not fire again until the button has been released
 		u32 pressed = WPAD_ButtonsDown(0) | WPAD_ButtonsDown(1) | WPAD_ButtonsDown(2) | WPAD_ButtonsDown(3);
