@@ -3,6 +3,7 @@
 #include <gccore.h>
 #include <wiiuse/wpad.h>
 
+#define NUM_FORMATS (WPAD_FMT_BTNS_ACC_IR + 1)
 static void *xfb = NULL;
 static bool isSearching = false;
 static GXRModeObj *rmode = NULL;
@@ -81,18 +82,25 @@ int main(int argc, char **argv) {
 	//set console starting position to the second row, to make space for tv's offsets
 	printf("\x1b[2;0H");
 
+#define BTN_COLOR "\x1b[1;33m"
 	printf("Hello World!\n");
 	printf("Connect a wiimote by pressing a button\n");
 	printf("Or press the red sync button on the wii together with the wiimote!\n");
-	printf("to toggle searching for guest wiimotes, press +\n");
-	printf("to exit, press the home\n");
+	printf("         Other combinations: "BTN_COLOR "B" CONSOLE_RESET" plus the following:\n");
+	printf(BTN_COLOR "+" CONSOLE_RESET ": toggle guest search  "
+		   BTN_COLOR "1" CONSOLE_RESET ": data format  "
+		   BTN_COLOR "Up" CONSOLE_RESET ": toggle M+  "
+		   "\n");
+	printf(BTN_COLOR "Home" CONSOLE_RESET ": quit\n");
 	
 	bool mp_enabled = false;
+
+	s32 format = WPAD_FMT_BTNS_ACC_IR;
 	int num_lines_prev = 0;
 	while(SYS_MainLoop()) 
 	{
-		//reset console location to 8th row
-		printf("\x1b[8;0H");
+		//reset console location to 9th row
+		printf("\x1b[9;0H");
 		int num_lines = 0;
 
 		// Call WPAD_ScanPads each loop, this reads the latest controller states
@@ -105,25 +113,36 @@ int main(int argc, char **argv) {
 			WPADData* data = WPAD_Data(i);
 			if(data->data_present)
 			{
+				char line[128] = {0};
+				char *dst = line;
 				float battery_level = WPAD_BatteryLevel(i) * 100.0 / 200;
+				if (data->data_present & WPAD_DATA_IR)
+				{
+					dst += sprintf(dst, "IR: %5.1fx%5.1f, %5.1fdeg  ",
+					               data->ir.x, data->ir.y, data->ir.angle);
+				}
+
+				if (data->data_present & WPAD_DATA_ACCEL)
+				{
+					dst += sprintf(dst, "Accel: %.2f, %.2f, %.2f  ",
+					               data->gforce.x, data->gforce.y, data->gforce.z);
+				}
+
 				if (data->data_present & WPAD_DATA_EXPANSION && data->exp.type == EXP_MOTION_PLUS)
 				{
-					printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f, gyro (%d, %d, %d)\n",
-					       i, battery_level, data->ir.x, data->ir.y, data->ir.angle,
-					       data->exp.mp.rx, data->exp.mp.ry, data->exp.mp.rz);
+					dst += sprintf(dst, "gyro (%d, %d, %d)  ",
+					               data->exp.mp.rx, data->exp.mp.ry, data->exp.mp.rz);
 				}
-				else
-				{
-					printf("wiimote %d (%.1f%%): x -> %f y-> %f angle -> %f\n",
-					       i, battery_level, data->ir.x, data->ir.y, data->ir.angle);
-				}
-				char second_line[128];
-				char *dst = second_line;
+				printf("wiimote %d (%.1f%%) %-50s\n", i, battery_level, line);
+
+				/* Second line */
+				dst = line;
 				if (data->btns_h) {
 					dst += format_buttons(dst, data->btns_h);
 				}
-				if (dst != second_line) {
-					printf("        %-60s\n", second_line);
+				if (dst != line) {
+					printf("\33[2K\r");
+					printf("        %-60s\n", line);
 					num_lines++;
 				}
 			}
@@ -162,6 +181,12 @@ int main(int argc, char **argv) {
 				{
 					WPAD_Rumble(i, 1);
 				}
+
+				if (btn_combo & WPAD_BUTTON_1)
+				{
+					format = (format + 1) % NUM_FORMATS;
+					WPAD_SetDataFormat(i, format);
+				}
 			}
 
 			if (btn_released & WPAD_BUTTON_DOWN)
@@ -170,8 +195,8 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		for (int i = num_lines; i < num_lines_prev; i++) {
-			printf("%80s\n", "");
+		for (int i = num_lines; i <= num_lines_prev; i++) {
+			printf("\33[2K\r");
 		}
 		num_lines_prev = num_lines;
 		// WPAD_ButtonsDown tells us which buttons were pressed in this loop
